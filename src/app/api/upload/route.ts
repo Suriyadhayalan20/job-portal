@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import fs from 'fs';
-import path from 'path';
-import { writeFile } from 'fs/promises';
+import cloudinary from '@/lib/cloudinary';
 
 export async function POST(request: NextRequest) {
     try {
@@ -21,7 +19,8 @@ export async function POST(request: NextRequest) {
 
         // Validation: Only allow PDF, DOC, DOCX
         const allowedExtensions = ['.pdf', '.doc', '.docx'];
-        const fileExtension = path.extname(file.name).toLowerCase();
+        const fileName = file.name;
+        const fileExtension = `.${fileName.split('.').pop()?.toLowerCase()}`;
 
         if (!allowedExtensions.includes(fileExtension)) {
             return NextResponse.json({ error: 'Invalid file type. Only PDF, DOC, and DOCX are allowed.' }, { status: 400 });
@@ -33,27 +32,35 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'File size too large. Maximum size is 5MB.' }, { status: 400 });
         }
 
+        // Convert file to buffer for Cloudinary
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Ensure upload directory exists
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
+        // Upload to Cloudinary using upload_stream
+        const result: any = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'resumes',
+                    resource_type: 'auto',
+                    // Use a unique filename but keep original name minus extension for public_id
+                    public_id: `${Date.now()}_${fileName.replace(/\.[^/.]+$/, "").replace(/\s+/g, '_')}`
+                },
+                (error, result) => {
+                    if (error) {
+                        console.error('Cloudinary Upload Error:', error);
+                        reject(error);
+                    } else {
+                        resolve(result);
+                    }
+                }
+            );
+            uploadStream.end(buffer);
+        });
 
-        // Create a unique filename to avoid overwrites
-        const uniqueFileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-        const filePath = path.join(uploadDir, uniqueFileName);
-
-        await writeFile(filePath, buffer);
-
-        // Return the relative URL
-        const resumeUrl = `/uploads/${uniqueFileName}`;
-
+        // Return the Cloudinary secure URL
         return NextResponse.json({
             message: 'File uploaded successfully',
-            url: resumeUrl
+            url: result.secure_url
         });
 
     } catch (error: any) {
@@ -61,3 +68,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
     }
 }
+
