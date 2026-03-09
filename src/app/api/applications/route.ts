@@ -13,9 +13,10 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { jobId, resumeUrl, coverLetter } = body;
+        const { jobId, resume, resumeUrl, coverLetter } = body;
+        const finalResume = resume || resumeUrl;
 
-        if (!jobId || !resumeUrl) {
+        if (!jobId || !finalResume) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
@@ -40,7 +41,8 @@ export async function POST(request: NextRequest) {
             jobId,
             userId: session.user.id,
             employer: job.employer,
-            resumeUrl,
+            resume: finalResume,
+            resumeUrl: finalResume, // Store in both for now
             coverLetter,
             status: 'applied'
         });

@@ -112,7 +112,7 @@ export default function AdminApplicationsPage() {
                                         </td>
                                         <td className="px-6 py-5 text-right">
                                             <a
-                                                href={app.resumeUrl}
+                                                href={app.resume || app.resumeUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="p-2 inline-flex items-center gap-1.5 text-xs font-bold text-ink-600 hover:text-white hover:bg-ink-600 border border-ink-100 rounded-lg transition-all"

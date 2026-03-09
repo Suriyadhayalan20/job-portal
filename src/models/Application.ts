@@ -4,7 +4,8 @@ export interface IApplication extends Document {
   jobId: Types.ObjectId;
   userId: Types.ObjectId;
   employer: Types.ObjectId;
-  resumeUrl: string;
+  resume: string;
+  resumeUrl?: string; // Kept for backward compatibility during transition
   coverLetter?: string;
   status: 'applied' | 'reviewed' | 'rejected' | 'accepted';
   notes?: string;
@@ -17,7 +18,8 @@ const ApplicationSchema = new Schema<IApplication>(
     jobId: { type: Schema.Types.ObjectId, ref: 'Job', required: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     employer: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    resumeUrl: { type: String, required: true },
+    resume: { type: String, required: true },
+    resumeUrl: { type: String }, // Optional during transition
     coverLetter: { type: String, maxlength: 2000 },
     status: {
       type: String,

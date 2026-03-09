@@ -91,7 +91,7 @@ export default async function ApplicantsPage({ params }: { params: { jobId: stri
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500 flex items-center gap-1.5"><FileText size={14} /> Resume</span>
-                      <a href={app.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-ink-600 font-bold hover:underline flex items-center gap-1">
+                      <a href={app.resume || app.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-ink-600 font-bold hover:underline flex items-center gap-1">
                         View <ExternalLink size={12} />
                       </a>
                     </div>
