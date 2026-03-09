@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
                 {
                     folder: 'resumes',
                     resource_type: 'raw',
+                    type: 'upload',
+                    access_mode: 'public',
                     // Include extension in public_id for 'raw' files to ensure URL ends correctly
                     public_id: `${Date.now()}_${fileName.replace(/\s+/g, '_')}`
                 },
