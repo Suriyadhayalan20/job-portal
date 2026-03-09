@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: 'resumes',
-                    resource_type: 'auto',
-                    // Use a unique filename but keep original name minus extension for public_id
-                    public_id: `${Date.now()}_${fileName.replace(/\.[^/.]+$/, "").replace(/\s+/g, '_')}`
+                    resource_type: 'raw',
+                    // Include extension in public_id for 'raw' files to ensure URL ends correctly
+                    public_id: `${Date.now()}_${fileName.replace(/\s+/g, '_')}`
                 },
                 (error, result) => {
                     if (error) {
