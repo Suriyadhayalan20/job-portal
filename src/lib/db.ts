@@ -19,25 +19,29 @@ async function connectDB() {
   }
 
   if (cached.conn) {
+    console.log('Using cached MongoDB connection');
     return cached.conn;
   }
 
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      connectTimeoutMS: 10000, // 10 seconds timeout
+      socketTimeoutMS: 45000,  // 45 seconds timeout
     };
 
+    console.log('Connecting to MongoDB...');
     cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-      console.log('New MongoDB connection established');
+      console.log('Successfully connected to MongoDB');
       return mongoose;
     });
   }
 
   try {
     cached.conn = await cached.promise;
-  } catch (e) {
+  } catch (e: any) {
     cached.promise = null;
-    console.error('MongoDB connection error:', e);
+    console.error('MongoDB connection error:', e.message);
     throw e;
   }
 

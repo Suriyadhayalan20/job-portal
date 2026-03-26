@@ -13,35 +13,50 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        console.log('Authorize function called with email:', credentials?.email);
+
         if (!credentials?.email || !credentials?.password) {
+          console.error('Missing credentials');
           throw new Error('Please provide email and password');
         }
 
-        await dbConnect();
+        try {
+          await dbConnect();
+          console.log('Database connected successfully');
 
-        const user = await User.findOne({ email: credentials.email }).select('+password');
+          const user = await User.findOne({ email: credentials.email }).select('+password');
+          
+          if (!user) {
+            console.error('No user found with email:', credentials.email);
+            throw new Error('No user found with this email');
+          }
 
-        if (!user) {
-          throw new Error('No user found with this email');
+          console.log('User found:', user.email);
+
+          const isPasswordMatch = await bcrypt.compare(credentials.password, user.password);
+
+          if (!isPasswordMatch) {
+            console.error('Invalid password for user:', credentials.email);
+            throw new Error('Invalid password');
+          }
+
+          console.log('Password matched for user:', user._id);
+
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+        } catch (error: any) {
+          console.error('Authorize error:', error.message);
+          throw new Error(error.message || 'Authentication failed');
         }
-
-        const isPasswordMatch = await bcrypt.compare(credentials.password, user.password);
-
-        if (!isPasswordMatch) {
-          throw new Error('Invalid password');
-        }
-
-        return {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
@@ -65,4 +80,16 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development' || true, // Keep it true to debug production for now
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
 };
