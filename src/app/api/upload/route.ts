@@ -38,14 +38,15 @@ export async function POST(request: NextRequest) {
 
         // Clean filename and ensure extension is preserved for raw upload
         const cleanFileName = fileName.replace(/\s+/g, '_');
+        const baseName = cleanFileName.replace(/\.[^/.]+$/, '');
+        const finalFileName = `${baseName}${fileExtension}`;
 
-        // Upload to Cloudinary using upload_stream
         const result: any = await new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: 'resumes',
                     resource_type: 'raw',
-                    public_id: `${Date.now()}_${cleanFileName}${fileExtension}`
+                    public_id: `${Date.now()}_${finalFileName}`, // ✅ correct
                 },
                 (error, result) => {
                     if (error) {
