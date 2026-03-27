@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
             uploadStream.end(buffer);
         });
 
-        // Ensure PDF is viewable in browser using fl_inline
-        const secureUrl = result.secure_url.replace('/upload/', '/upload/fl_inline/');
+        // Use original secure_url directly as raw files don't support fl_inline transformation
+        const secureUrl = result.secure_url;
 
         // Return the Cloudinary secure URL in the requested format
         return NextResponse.json({
