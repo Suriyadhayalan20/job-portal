@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
                 {
                     folder: 'resumes',
                     resource_type: 'raw',
-                    public_id: `${Date.now()}_${cleanFileName}`,
+                    public_id: `${Date.now()}_${cleanFileName}${fileExtension}`
                 },
                 (error, result) => {
                     if (error) {
