@@ -28,9 +28,15 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean();
 
-    return NextResponse.json({ jobs, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      jobs,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as any).message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -46,10 +52,14 @@ export async function PUT(request: NextRequest) {
     const { jobId, status } = body;
 
     const job = await Job.findByIdAndUpdate(jobId, { status }, { new: true });
-    if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    if (!job)
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
 
     return NextResponse.json({ message: `Job ${status}`, job });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as any).message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }
