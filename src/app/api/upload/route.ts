@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
                     type: 'upload',
                     access_mode: 'public',
                     public_id: `${Date.now()}_${fileName.replace(/\s+/g, '_')}`,
-                    format: 'pdf'
                 },
                 (error, result) => {
                     if (error) {
@@ -59,11 +58,14 @@ export async function POST(request: NextRequest) {
             uploadStream.end(buffer);
         });
 
+        // Ensure PDF is viewable in browser using fl_inline
+        const secureUrl = result.secure_url.replace('/upload/', '/upload/fl_inline/');
+
         // Return the Cloudinary secure URL in the requested format
         return NextResponse.json({
             message: 'File uploaded successfully',
-            url: result.secure_url, // Keep for backward compatibility
-            resume: result.secure_url // New field as requested
+            url: secureUrl,
+            resume: secureUrl
         });
 
     } catch (error) {
