@@ -44,10 +44,8 @@ export async function POST(request: NextRequest) {
                     resource_type: 'raw',
                     type: 'upload',
                     access_mode: 'public',
-
-                    public_id: `${Date.now()}_${fileName.replace(/\s+/g, '_')}`, // ✅ comma added
-
-                    format: 'pdf' // ✅ now valid
+                    public_id: `${Date.now()}_${fileName.replace(/\s+/g, '_')}`,
+                    format: 'pdf'
                 },
                 (error, result) => {
                     if (error) {
@@ -58,17 +56,18 @@ export async function POST(request: NextRequest) {
                     }
                 }
             );
+            uploadStream.end(buffer);
+        });
 
-            // Return the Cloudinary secure URL in the requested format
-            return NextResponse.json({
-                message: 'File uploaded successfully',
-                url: result.secure_url, // Keep for backward compatibility
-                resume: result.secure_url // New field as requested
-            });
+        // Return the Cloudinary secure URL in the requested format
+        return NextResponse.json({
+            message: 'File uploaded successfully',
+            url: result.secure_url, // Keep for backward compatibility
+            resume: result.secure_url // New field as requested
+        });
 
-        } catch (error: any) {
-            console.error('Upload Error:', error);
-            return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
-        }
+    } catch (error) {
+        console.error('Upload Error:', error);
+        return NextResponse.json({ error: (error as any).message || 'Internal Server Error' }, { status: 500 });
     }
-
+}
