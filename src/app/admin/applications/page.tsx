@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, AlertCircle, FileText, ExternalLink, Mail, User, Briefcase } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { formatDate, fixResumeUrl } from '@/lib/utils';
 import Link from 'next/link';
 
 export default function AdminApplicationsPage() {
@@ -112,7 +112,7 @@ export default function AdminApplicationsPage() {
                                         </td>
                                         <td className="px-6 py-5 text-right">
                                             <a
-                                                href={app.resume || app.resumeUrl}
+                                                href={fixResumeUrl(app.resume || app.resumeUrl)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="p-2 inline-flex items-center gap-1.5 text-xs font-bold text-ink-600 hover:text-white hover:bg-ink-600 border border-ink-100 rounded-lg transition-all"
