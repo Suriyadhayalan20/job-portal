@@ -5,6 +5,7 @@ import dbConnect from '@/lib/db';
 import Application from '@/models/Application';
 import Job from '@/models/Job';
 import cloudinary from '@/lib/cloudinary';
+import streamifier from 'streamifier';
 
 export async function POST(request: NextRequest) {
     try {
@@ -46,23 +47,27 @@ export async function POST(request: NextRequest) {
             const bytes = await file.arrayBuffer();
             const buffer = Buffer.from(bytes);
 
-            // Upload to Cloudinary
+            // Upload to Cloudinary using streamifier for production reliability
             const uploadResult: any = await new Promise((resolve, reject) => {
                 const uploadStream = cloudinary.uploader.upload_stream(
                     {
                         folder: 'resumes',
                         resource_type: 'raw',
-                        format: 'pdf',              // ✅ IMPORTANT
-                        use_filename: true,         // ✅ IMPORTANT
-                        unique_filename: true,      // ✅ IMPORTANT
+                        use_filename: true,
+                        unique_filename: true
                     },
                     (error, result) => {
-                        if (error) reject(error);
-                        else resolve(result);
+                        if (error) {
+                            console.error('Cloudinary Stream Error:', error);
+                            reject(error);
+                        } else {
+                            resolve(result);
+                        }
                     }
                 );
 
-                uploadStream.end(buffer);
+                // Pipe the buffer to the Cloudinary upload stream
+                streamifier.createReadStream(buffer).pipe(uploadStream);
             });
 
             resumeUrl = uploadResult.secure_url;
