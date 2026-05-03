@@ -51,14 +51,17 @@ export async function POST(request: NextRequest) {
                 const uploadStream = cloudinary.uploader.upload_stream(
                     {
                         folder: 'resumes',
-                        resource_type: 'raw', // 🔥 CHANGE THIS (not auto)
-                        public_id: `${Date.now()}_${fileName}`,
+                        resource_type: 'raw',
+                        format: 'pdf',              // ✅ IMPORTANT
+                        use_filename: true,         // ✅ IMPORTANT
+                        unique_filename: true,      // ✅ IMPORTANT
                     },
                     (error, result) => {
                         if (error) reject(error);
                         else resolve(result);
                     }
                 );
+
                 uploadStream.end(buffer);
             });
 
