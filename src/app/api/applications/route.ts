@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
                 const uploadStream = cloudinary.uploader.upload_stream(
                     {
                         folder: 'resumes',
-                        resource_type: 'auto', // As requested
-                        public_id: `${Date.now()}_${fileName.replace(/\s+/g, '_').replace(/\.[^/.]+$/, '')}`,
+                        resource_type: 'raw', // 🔥 CHANGE THIS (not auto)
+                        public_id: `${Date.now()}_${fileName}`,
                     },
                     (error, result) => {
                         if (error) reject(error);
@@ -102,8 +102,8 @@ export async function POST(request: NextRequest) {
         // Increment application count on job
         await Job.findByIdAndUpdate(jobId, { $inc: { applicationCount: 1 } });
 
-        return NextResponse.json({ 
-            message: 'Application submitted successfully', 
+        return NextResponse.json({
+            message: 'Application submitted successfully',
             application,
             url: resumeUrl // Return uploaded file URL as requested
         }, { status: 201 });
