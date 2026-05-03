@@ -8,21 +8,38 @@ import { formatDate, formatSalary, timeAgo } from '@/lib/utils';
 import dbConnect from '@/lib/db';
 import Job from '@/models/Job';
 
+import mongoose from 'mongoose';
+
 async function getJob(id: string) {
   try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return { error: 'invalid_id' };
+    }
+    
     await dbConnect();
     const job = await Job.findById(id).populate('employer', 'name email company avatar').lean();
-    if (!job || (job as any).status !== 'approved') return null;
-    await Job.findByIdAndUpdate(id, { $inc: { views: 1 } });
+    
+    if (!job) return null;
+    if ((job as any).status !== 'approved') return { error: 'not_approved' };
+    
+    // Background update views (don't await to speed up page load)
+    Job.findByIdAndUpdate(id, { $inc: { views: 1 } }).catch(console.error);
+    
     return job;
-  } catch {
-    return null;
+  } catch (error) {
+    console.error('Error fetching job:', error);
+    return { error: 'db_error' };
   }
 }
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
-  const job = await getJob(params.id) as any;
-  if (!job) notFound();
+  const result = await getJob(params.id);
+  
+  if (!result || (result as any).error) {
+    notFound();
+  }
+
+  const job = result as any;
 
   return (
     <div className="min-h-screen flex flex-col">

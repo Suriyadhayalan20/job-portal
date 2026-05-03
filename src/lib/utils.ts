@@ -37,21 +37,3 @@ export const JOB_CATEGORIES = [
 ] as const;
 export const EXPERIENCE_LEVELS = ['Entry Level', 'Mid Level', 'Senior Level', 'Lead', 'Manager', 'Director', 'Executive'] as const;
 
-/**
- * Fixes Cloudinary raw PDF URLs to ensure they display correctly in the browser
- * by adding the fl_inline flag.
- */
-export function fixResumeUrl(url: string | undefined | null): string {
-    if (!url) return '#';
-    
-    // Only apply fix to Cloudinary 'raw' URLs that contain '/upload/'
-    if (url.includes('cloudinary.com') && url.includes('/raw/upload/')) {
-        // If it already has the flag, don't add it again
-        if (url.includes('/fl_inline/')) return url;
-        
-        return url.replace('/upload/', '/upload/fl_inline/');
-    }
-    
-    return url;
-}
-
