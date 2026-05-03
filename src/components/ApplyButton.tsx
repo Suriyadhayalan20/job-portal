@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { Send, CheckCircle } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import ResumeUpload from './ResumeUpload';
 
@@ -18,10 +18,8 @@ export default function ApplyButton({ jobId, jobTitle }: ApplyButtonProps) {
     const router = useRouter();
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-        resumeUrl: '',
-        coverLetter: ''
-    });
+    const [resumeFile, setResumeFile] = useState<File | null>(null);
+    const [coverLetter, setCoverLetter] = useState('');
     const [isSuccess, setIsSuccess] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -31,21 +29,24 @@ export default function ApplyButton({ jobId, jobTitle }: ApplyButtonProps) {
             return;
         }
 
-        if (!formData.resumeUrl) {
+        if (!resumeFile) {
             toast.error('Please upload your resume first');
             return;
         }
 
         setLoading(true);
         try {
+            const formData = new FormData();
+            formData.append('jobId', jobId);
+            formData.append('file', resumeFile);
+            formData.append('coverLetter', coverLetter);
+
             const res = await fetch('/api/applications', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    jobId,
-                    resumeUrl: formData.resumeUrl,
-                    coverLetter: formData.coverLetter
-                })
+                body: formData,
+                // Note: Do NOT set Content-Type header, 
+                // the browser will automatically set it to multipart/form-data 
+                // with the correct boundary.
             });
 
             const data = await res.json();
@@ -99,7 +100,7 @@ export default function ApplyButton({ jobId, jobTitle }: ApplyButtonProps) {
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <ResumeUpload
-                    onUpload={(url) => setFormData(prev => ({ ...prev, resumeUrl: url }))}
+                    onFileSelect={(file) => setResumeFile(file)}
                 />
 
                 <div>
@@ -107,8 +108,8 @@ export default function ApplyButton({ jobId, jobTitle }: ApplyButtonProps) {
                     <textarea
                         className="input-field min-h-[120px] resize-none focus:ring-ink-500 focus:border-ink-500"
                         placeholder="Tell us why you are a good fit for this role..."
-                        value={formData.coverLetter}
-                        onChange={(e) => setFormData(prev => ({ ...prev, coverLetter: e.target.value }))}
+                        value={coverLetter}
+                        onChange={(e) => setCoverLetter(e.target.value)}
                     />
                 </div>
 

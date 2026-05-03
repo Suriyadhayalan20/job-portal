@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/db';
 import Application from '@/models/Application';
 import Job from '@/models/Job';
+import cloudinary from '@/lib/cloudinary';
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,12 +13,63 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const body = await request.json();
-        const { jobId, resume, resumeUrl, coverLetter } = body;
-        const finalResume = resume || resumeUrl;
+        // Handle multipart/form-data
+        const formData = await request.formData();
+        const jobId = formData.get('jobId') as string;
+        const coverLetter = formData.get('coverLetter') as string;
+        const file = formData.get('file') as File | null;
 
-        if (!jobId || !finalResume) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        if (!jobId) {
+            return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
+        }
+
+        let resumeUrl = '';
+
+        // If a file is provided, upload it to Cloudinary
+        if (file) {
+            // Validation: Max size 5MB
+            const maxSize = 5 * 1024 * 1024;
+            if (file.size > maxSize) {
+                return NextResponse.json({ error: 'File size too large. Maximum size is 5MB.' }, { status: 400 });
+            }
+
+            // Validation: Only allow PDF, DOC, DOCX
+            const allowedExtensions = ['.pdf', '.doc', '.docx'];
+            const fileName = file.name;
+            const fileExtension = `.${fileName.split('.').pop()?.toLowerCase()}`;
+
+            if (!allowedExtensions.includes(fileExtension)) {
+                return NextResponse.json({ error: 'Invalid file type. Only PDF, DOC, and DOCX are allowed.' }, { status: 400 });
+            }
+
+            // Convert file to buffer for Cloudinary
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+
+            // Upload to Cloudinary
+            const uploadResult: any = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    {
+                        folder: 'resumes',
+                        resource_type: 'auto', // As requested
+                        public_id: `${Date.now()}_${fileName.replace(/\s+/g, '_').replace(/\.[^/.]+$/, '')}`,
+                    },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
+                uploadStream.end(buffer);
+            });
+
+            resumeUrl = uploadResult.secure_url;
+        } else {
+            // Fallback for cases where URL might be sent (though we prefer File now)
+            resumeUrl = formData.get('resumeUrl') as string;
+        }
+
+        if (!resumeUrl) {
+            return NextResponse.json({ error: 'Resume is required' }, { status: 400 });
         }
 
         await dbConnect();
@@ -41,8 +93,8 @@ export async function POST(request: NextRequest) {
             jobId,
             userId: session.user.id,
             employer: job.employer,
-            resume: finalResume,
-            resumeUrl: finalResume, // Store in both for now
+            resume: resumeUrl,
+            resumeUrl: resumeUrl,
             coverLetter,
             status: 'applied'
         });
@@ -50,7 +102,12 @@ export async function POST(request: NextRequest) {
         // Increment application count on job
         await Job.findByIdAndUpdate(jobId, { $inc: { applicationCount: 1 } });
 
-        return NextResponse.json({ message: 'Application submitted successfully', application }, { status: 201 });
+        return NextResponse.json({ 
+            message: 'Application submitted successfully', 
+            application,
+            url: resumeUrl // Return uploaded file URL as requested
+        }, { status: 201 });
+
     } catch (error: any) {
         console.error('Application Error:', error);
         return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
