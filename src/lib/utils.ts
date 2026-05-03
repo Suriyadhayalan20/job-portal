@@ -44,9 +44,6 @@ export const EXPERIENCE_LEVELS = ['Entry Level', 'Mid Level', 'Senior Level', 'L
 export function fixResumeUrl(url: string | undefined | null): string {
     if (!url) return '#';
     
-    // If it's a local upload, return it as is
-    if (url.startsWith('/uploads/')) return url;
-    
     // Only apply fix to Cloudinary 'raw' URLs that contain '/upload/'
     if (url.includes('cloudinary.com') && url.includes('/raw/upload/')) {
         // If it already has the flag, don't add it again

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import fs from 'fs/promises';
-import path from 'path';
+import cloudinary from '@/lib/cloudinary';
 
 export async function POST(request: NextRequest) {
     try {
@@ -33,35 +32,42 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'File size too large. Maximum size is 5MB.' }, { status: 400 });
         }
 
-        // Convert file to buffer
+        // Convert file to buffer for Cloudinary
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Clean filename and ensure extension is preserved
+        // Clean filename and ensure extension is preserved for raw upload
         const cleanFileName = fileName.replace(/\s+/g, '_');
         const baseName = cleanFileName.replace(/\.[^/.]+$/, '');
-        const finalFileName = `${Date.now()}_${cleanFileName}`;
+        const finalFileName = `${baseName}${fileExtension}`;
 
-        // Define path
-        const uploadDir = path.join(process.cwd(), process.env.UPLOAD_DIR || 'public/uploads');
-        
-        // Create directory if it doesn't exist
-        try {
-            await fs.access(uploadDir);
-        } catch {
-            await fs.mkdir(uploadDir, { recursive: true });
-        }
+        const result: any = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'resumes',
+                    resource_type: 'raw',
+                    public_id: `${Date.now()}_${finalFileName}`, // ✅ correct
+                },
+                (error, result) => {
+                    if (error) {
+                        console.error('Cloudinary Upload Error:', error);
+                        reject(error);
+                    } else {
+                        resolve(result);
+                    }
+                }
+            );
+            uploadStream.end(buffer);
+        });
 
-        const filePath = path.join(uploadDir, finalFileName);
-        await fs.writeFile(filePath, buffer);
+        // Use original secure_url directly as raw files don't support fl_inline transformation
+        const secureUrl = result.secure_url;
 
-        // Path for web access
-        const fileUrl = `/uploads/${finalFileName}`;
-
+        // Return the Cloudinary secure URL in the requested format
         return NextResponse.json({
             message: 'File uploaded successfully',
-            url: fileUrl,
-            resume: fileUrl
+            url: secureUrl,
+            resume: secureUrl
         });
 
     } catch (error) {
