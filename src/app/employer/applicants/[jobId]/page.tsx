@@ -7,6 +7,7 @@ import dbConnect from '@/lib/db';
 import Job from '@/models/Job';
 import Application from '@/models/Application';
 import { formatDate } from '@/lib/utils';
+import { openResume } from '@/lib/resumeUtils';
 
 async function getData(jobId: string, employerId: string) {
   await dbConnect();
@@ -91,9 +92,12 @@ export default async function ApplicantsPage({ params }: { params: { jobId: stri
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500 flex items-center gap-1.5"><FileText size={14} /> Resume</span>
-                      <a href={app.resume || app.resumeUrl || '#'} target="_blank" rel="noopener noreferrer" className="text-ink-600 font-bold hover:underline flex items-center gap-1">
-                        View <ExternalLink size={12} />
-                      </a>
+                      <button 
+                        onClick={() => openResume(app.resume)} 
+                        className="text-ink-600 font-bold hover:underline flex items-center gap-1"
+                      >
+                        View Resume <ExternalLink size={12} />
+                      </button>
                     </div>
                     <div className="mt-4 pt-4 border-t border-slate-100">
                       <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${statusColors[app.status] || 'bg-slate-100 text-slate-600'}`}>

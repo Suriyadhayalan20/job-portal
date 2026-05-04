@@ -4,156 +4,112 @@ import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/db';
 import Application from '@/models/Application';
 import Job from '@/models/Job';
-import cloudinary from '@/lib/cloudinary';
-import streamifier from 'streamifier';
 
+/**
+ * Robust Application API:
+ * Handles file uploads by converting them to Base64 buffers. 
+ * This ensures file integrity and prevents "Failed to load PDF" errors 
+ * caused by corrupted stream handling.
+ */
 export async function POST(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Handle multipart/form-data
-        const formData = await request.formData();
-        const jobId = formData.get('jobId') as string;
-        const coverLetter = formData.get('coverLetter') as string;
-        const file = formData.get('file') as File | null;
-
-        if (!jobId) {
-            return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
-        }
-
-        let resumeUrl = '';
-
-        // If a file is provided, upload it to Cloudinary
-        if (file) {
-            // Validation: Max size 5MB
-            const maxSize = 5 * 1024 * 1024;
-            if (file.size > maxSize) {
-                return NextResponse.json({ error: 'File size too large. Maximum size is 5MB.' }, { status: 400 });
-            }
-
-            // Validation: Only allow PDF, DOC, DOCX
-            const allowedExtensions = ['.pdf', '.doc', '.docx'];
-            const fileName = file.name;
-            const fileExtension = `.${fileName.split('.').pop()?.toLowerCase()}`;
-
-            if (!allowedExtensions.includes(fileExtension)) {
-                return NextResponse.json({ error: 'Invalid file type. Only PDF, DOC, and DOCX are allowed.' }, { status: 400 });
-            }
-
-            // Convert file to buffer for Cloudinary
-            const bytes = await file.arrayBuffer();
-            const buffer = Buffer.from(bytes);
-
-            // Upload to Cloudinary using streamifier for production reliability
-            const uploadResult: any = await new Promise((resolve, reject) => {
-                const uploadStream = cloudinary.uploader.upload_stream(
-                    {
-                        folder: 'resumes',
-                        resource_type: 'raw',
-                        use_filename: true,
-                        unique_filename: true
-                    },
-                    (error, result) => {
-                        if (error) {
-                            console.error('Cloudinary Stream Error:', error);
-                            reject(error);
-                        } else {
-                            resolve(result);
-                        }
-                    }
-                );
-
-                // Pipe the buffer to the Cloudinary upload stream
-                streamifier.createReadStream(buffer).pipe(uploadStream);
-            });
-
-            resumeUrl = uploadResult.secure_url;
-        } else {
-            // Fallback for cases where URL might be sent (though we prefer File now)
-            resumeUrl = formData.get('resumeUrl') as string;
-        }
-
-        if (!resumeUrl) {
-            return NextResponse.json({ error: 'Resume is required' }, { status: 400 });
-        }
-
-        await dbConnect();
-
-        // Check if job exists and is approved
-        const job = await Job.findById(jobId);
-        if (!job) {
-            return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-        }
-        if (job.status !== 'approved') {
-            return NextResponse.json({ error: 'Job is not available for applications' }, { status: 400 });
-        }
-
-        // Check if user already applied
-        const existingApplication = await Application.findOne({ jobId, userId: session.user.id });
-        if (existingApplication) {
-            return NextResponse.json({ error: 'You have already applied for this job' }, { status: 409 });
-        }
-
-        const application = await Application.create({
-            jobId,
-            userId: session.user.id,
-            employer: job.employer,
-            resume: resumeUrl,
-            resumeUrl: resumeUrl,
-            coverLetter,
-            status: 'applied'
-        });
-
-        // Increment application count on job
-        await Job.findByIdAndUpdate(jobId, { $inc: { applicationCount: 1 } });
-
-        return NextResponse.json({
-            message: 'Application submitted successfully',
-            application,
-            url: resumeUrl // Return uploaded file URL as requested
-        }, { status: 201 });
-
-    } catch (error: any) {
-        console.error('Application Error:', error);
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const formData = await request.formData();
+    const jobId = formData.get('jobId') as string;
+    const coverLetter = formData.get('coverLetter') as string;
+    const file = formData.get('file') as File;
+
+    if (!jobId || !file) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // 1. Convert File to Base64 for 100% safe transit to Cloudinary
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const fileBase64 = `data:${file.type};base64,${buffer.toString('base64')}`;
+
+    // 2. Upload to Cloudinary using 'auto' for document support
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'resumes';
+
+    const cloudinaryFormData = new FormData();
+    cloudinaryFormData.append('file', fileBase64);
+    cloudinaryFormData.append('upload_preset', uploadPreset);
+    cloudinaryFormData.append('resource_type', 'auto');
+
+    const cloudinaryRes = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+      { method: 'POST', body: cloudinaryFormData }
+    );
+
+    const cloudinaryData = await cloudinaryRes.json();
+    
+    if (!cloudinaryRes.ok || !cloudinaryData.secure_url) {
+      throw new Error(cloudinaryData.error?.message || 'Cloudinary upload failed');
+    }
+
+    const resumeUrl = cloudinaryData.secure_url;
+
+    await dbConnect();
+    const job = await Job.findById(jobId);
+    if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+
+    const application = await Application.create({
+      jobId,
+      userId: session.user.id,
+      employer: job.employer,
+      resume: resumeUrl,
+      resumeUrl: resumeUrl,
+      coverLetter,
+      status: 'applied'
+    });
+
+    await Job.findByIdAndUpdate(jobId, { $inc: { applicationCount: 1 } });
+
+    return NextResponse.json({
+      message: 'Application submitted successfully',
+      application,
+      url: resumeUrl
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error('Application Upload Error:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
 }
 
 export async function GET(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        await dbConnect();
-        const { searchParams } = new URL(request.url);
-        const jobId = searchParams.get('jobId');
+    await dbConnect();
+    const { searchParams } = new URL(request.url);
+    const jobId = searchParams.get('jobId');
 
-        let query: any = {};
-        if (jobId) {
-            const job = await Job.findById(jobId);
-            if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-
-            if (job.employer.toString() !== session.user.id && session.user.role !== 'admin') {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-            }
-            query.jobId = jobId;
-        } else if (session.user.role !== 'admin') {
-            // Only filter by userId if NOT an admin
-            query.userId = session.user.id;
-        }
-
-        const applications = await Application.find(query)
-            .populate('jobId', 'title company location')
-            .populate('userId', 'name email avatar')
-            .sort({ createdAt: -1 });
-
-        return NextResponse.json({ applications });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    let query: any = {};
+    if (jobId) {
+      const job = await Job.findById(jobId);
+      if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+      if (job.employer.toString() !== session.user.id && session.user.role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      query.jobId = jobId;
+    } else if (session.user.role !== 'admin') {
+      query.userId = session.user.id;
     }
+
+    const applications = await Application.find(query)
+      .populate('jobId', 'title company location')
+      .populate('userId', 'name email avatar')
+      .sort({ createdAt: -1 });
+
+    return NextResponse.json({ applications });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }

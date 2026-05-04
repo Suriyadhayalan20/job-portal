@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, AlertCircle, FileText, ExternalLink, Mail, User, Briefcase } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
+import { openResume } from '@/lib/resumeUtils';
 
 export default function AdminApplicationsPage() {
     const [applications, setApplications] = useState<any[]>([]);
@@ -111,14 +112,12 @@ export default function AdminApplicationsPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-5 text-right">
-                                            <a
-                                                href={app.resume || app.resumeUrl || '#'}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                            <button
+                                                onClick={() => openResume(app.resume)}
                                                 className="p-2 inline-flex items-center gap-1.5 text-xs font-bold text-ink-600 hover:text-white hover:bg-ink-600 border border-ink-100 rounded-lg transition-all"
                                             >
-                                                VIEW <ExternalLink size={12} />
-                                            </a>
+                                                VIEW RESUME <ExternalLink size={12} />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))
