@@ -4,13 +4,14 @@ import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/db';
 import Application from '@/models/Application';
 import Job from '@/models/Job';
+import { v2 as cloudinary } from 'cloudinary';
 
-/**
- * Robust Application API:
- * Handles file uploads by converting them to Base64 buffers. 
- * This ensures file integrity and prevents "Failed to load PDF" errors 
- * caused by corrupted stream handling.
- */
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -27,45 +28,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 1. Convert File to Base64 for 100% safe transit to Cloudinary
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File too large. Maximum 5MB allowed.' }, { status: 400 });
+    }
+
+    // Convert file to base64 for Cloudinary SDK upload
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const fileBase64 = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-    // 2. Upload to Cloudinary using 'auto' for document support
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'resumes';
+    // Upload using Cloudinary SDK (signed — no preset needed)
+    const uploadResult = await cloudinary.uploader.upload(fileBase64, {
+      folder: 'resumes',
+      resource_type: 'auto',
+      allowed_formats: ['pdf', 'doc', 'docx'],
+    });
 
-    const cloudinaryFormData = new FormData();
-    cloudinaryFormData.append('file', fileBase64);
-    cloudinaryFormData.append('upload_preset', uploadPreset);
-    cloudinaryFormData.append('resource_type', 'auto');
-
-    const cloudinaryRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-      { method: 'POST', body: cloudinaryFormData }
-    );
-
-    const cloudinaryData = await cloudinaryRes.json();
-    
-    if (!cloudinaryRes.ok || !cloudinaryData.secure_url) {
-      throw new Error(cloudinaryData.error?.message || 'Cloudinary upload failed');
-    }
-
-    const resumeUrl = cloudinaryData.secure_url;
+    const resumeUrl = uploadResult.secure_url;
 
     await dbConnect();
     const job = await Job.findById(jobId);
     if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+
+    const existingApp = await Application.findOne({ jobId, userId: session.user.id });
+    if (existingApp) {
+      return NextResponse.json({ error: 'You have already applied for this job' }, { status: 409 });
+    }
 
     const application = await Application.create({
       jobId,
       userId: session.user.id,
       employer: job.employer,
       resume: resumeUrl,
-      resumeUrl: resumeUrl,
+      resumeUrl,
       coverLetter,
-      status: 'applied'
+      status: 'applied',
     });
 
     await Job.findByIdAndUpdate(jobId, { $inc: { applicationCount: 1 } });
@@ -73,11 +70,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: 'Application submitted successfully',
       application,
-      url: resumeUrl
+      url: resumeUrl,
     }, { status: 201 });
 
   } catch (error: any) {
-    console.error('Application Upload Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

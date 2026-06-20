@@ -50,7 +50,7 @@ export default function AdminApplicationsPage() {
         <div className="space-y-6 animate-fade-in">
             <div>
                 <h1 className="font-display text-3xl font-bold text-slate-900 tracking-tight">System Applications</h1>
-                <p className="text-slate-500 mt-1">Review all {applications.length} submissons across the platform</p>
+                <p className="text-slate-500 mt-1">Review all {applications.length} submissions across the platform</p>
             </div>
 
             <div className="card overflow-hidden border-none shadow-xl bg-white ring-1 ring-slate-100">

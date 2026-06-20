@@ -21,11 +21,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     if (existingApp) return NextResponse.json({ error: 'You have already applied for this job' }, { status: 409 });
 
     const body = await request.json();
+    const resumeUrl = body.resumeUrl || body.resume;
+    if (!resumeUrl) return NextResponse.json({ error: 'Resume URL is required' }, { status: 400 });
+
     const application = await Application.create({
       jobId: params.id,
       userId: session.user.id,
+      employer: job.employer,
+      resume: resumeUrl,
+      resumeUrl,
       coverLetter: body.coverLetter,
-      resumeUrl: body.resumeUrl || body.resume, // Support both just in case
       status: 'applied'
     });
 

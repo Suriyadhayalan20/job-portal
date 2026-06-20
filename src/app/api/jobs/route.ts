@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
     if (category) query.category = category;
     if (type) query.type = type;
-    if (location) query.location = { $regex: location, $options: 'i' };
+    if (location) query.location = { $regex: location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     if (experienceLevel) query.experienceLevel = experienceLevel;
 
     const skip = (page - 1) * limit;
@@ -88,13 +88,10 @@ export async function POST(request: NextRequest) {
       ...(typeof body.salary === 'object' ? { salary: body.salary } : {})
     };
 
-    console.log('Attempting to create job with data:', JSON.stringify(jobData, null, 2));
-
     const job = await Job.create(jobData);
 
     return NextResponse.json({ message: 'Job posted successfully', job }, { status: 201 });
   } catch (error: any) {
-    console.error('Error in POST /api/jobs:', error);
     return NextResponse.json({
       error: error.message || 'Internal Server Error',
       details: error.errors ? Object.keys(error.errors).map(key => error.errors[key].message) : undefined

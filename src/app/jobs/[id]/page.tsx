@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { notFound, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, Clock, Briefcase, TrendingUp, DollarSign, Calendar, Users, Building2, Globe, ArrowLeft, CheckCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';

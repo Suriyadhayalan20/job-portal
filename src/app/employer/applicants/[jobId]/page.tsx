@@ -8,6 +8,7 @@ import Job from '@/models/Job';
 import Application from '@/models/Application';
 import { formatDate } from '@/lib/utils';
 import { openResume } from '@/lib/resumeUtils';
+import ApplicationActions from '@/components/employer/ApplicationActions';
 
 async function getData(jobId: string, employerId: string) {
   await dbConnect();
@@ -118,10 +119,7 @@ export default async function ApplicantsPage({ params }: { params: { jobId: stri
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-6">
-                    <button className="flex-1 btn-secondary text-sm py-2 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100">Shortlist</button>
-                    <button className="flex-1 btn-secondary text-sm py-2 bg-red-50 text-red-700 border-red-100 hover:bg-red-100">Reject</button>
-                  </div>
+                  <ApplicationActions applicationId={app._id.toString()} currentStatus={app.status} />
                 </div>
               </div>
             </div>

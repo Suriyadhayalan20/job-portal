@@ -29,7 +29,7 @@ async function getJobs(params: PageProps['searchParams']) {
     query.set('page', params.page || '1');
     query.set('limit', '12');
 
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3001';
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/jobs?${query.toString()}`, { cache: 'no-store' });
     if (!res.ok) return { jobs: [], pagination: null };
     return res.json();

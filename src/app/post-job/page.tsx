@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import toast from 'react-hot-toast';
 import { Briefcase } from 'lucide-react';
 import Navbar from '@/components/Navbar';
@@ -10,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner';
 
 export default function PostJobPage() {
     const router = useRouter();
+    const { data: session, status } = useSession();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
@@ -22,6 +24,14 @@ export default function PostJobPage() {
         description: '',
         skills: '',
     });
+
+    useEffect(() => {
+        if (status === 'unauthenticated') {
+            router.push('/auth/login?callbackUrl=/post-job');
+        }
+    }, [status, router]);
+
+    if (status === 'loading' || status === 'unauthenticated') return null;
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
