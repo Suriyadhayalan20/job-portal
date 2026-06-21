@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     // Upload using Cloudinary SDK (signed — no preset needed)
     const uploadResult = await cloudinary.uploader.upload(fileBase64, {
       folder: 'resumes',
-      resource_type: 'auto',
+      resource_type: 'raw',
       allowed_formats: ['pdf', 'doc', 'docx'],
     });
 
